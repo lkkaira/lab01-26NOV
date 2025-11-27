@@ -1,0 +1,71 @@
+
+name: "Terraform Multi-Stage Deployment"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  stage1-storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Azure Login"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply Storage"
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -target=module.storage -var-file="terraform.tfvars"
+
+  stage2-appserviceplan:
+    runs-on: ubuntu-latest
+    needs: [ stage1-storage ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Azure Login"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply App Service Plan"
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -target=module.appserviceplan -var-file="terraform.tfvars"
+
+  stage3-webapp:
+    runs-on: ubuntu-latest
+    needs: [ stage2-appserviceplan ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Azure Login"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply Web App"
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -target=module.webapp -var-file="terraform.tfvars"
+
+  stage4-loganalytics:
+    runs-on: ubuntu-latest
+    needs: [ stage3-webapp ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Azure Login"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply Log Analytics"
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -target=module.loganalytics -var-file="terraform.tfvars"
