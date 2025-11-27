@@ -1,4 +1,3 @@
-
 name: "Terraform Multi-Stage Deployment"
 
 on:
@@ -25,13 +24,10 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: "Init & Apply Storage"
+        working-directory: .
         run: |
-          cd modules/storage
           terraform init -input=false
-          terraform apply -auto-approve \
-            -var "resource_group_name=${{ secrets.RG_NAME }}" \
-            -var "location=centralindia" \
-            -var "storage_name=lkstorage12345"
+          terraform apply -auto-approve -target=module.storage             -var-file="terraform.tfvars"
 
   # ------------------- STAGE 2: App Service Plan -------------------
   stage2-appserviceplan:
@@ -50,13 +46,10 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: "Init & Apply App Service Plan"
+        working-directory: .
         run: |
-          cd modules/appserviceplan
           terraform init -input=false
-          terraform apply -auto-approve \
-            -var "resource_group_name=${{ secrets.RG_NAME }}" \
-            -var "location=centralindia" \
-            -var "plan_name=lkappplan"
+          terraform apply -auto-approve -target=module.appserviceplan             -var-file="terraform.tfvars"
 
   # ------------------- STAGE 3: Web App -------------------
   stage3-webapp:
@@ -75,14 +68,10 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: "Init & Apply Web App"
+        working-directory: .
         run: |
-          cd modules/webapp
           terraform init -input=false
-          terraform apply -auto-approve \
-            -var "resource_group_name=${{ secrets.RG_NAME }}" \
-            -var "location=centralindia" \
-            -var "webapp_name=lkwebapp12345" \
-            -var "plan_id=${{ secrets.APP_SERVICE_PLAN_ID }}"
+          terraform apply -auto-approve -target=module.webapp             -var-file="terraform.tfvars"
 
   # ------------------- STAGE 4: Log Analytics -------------------
   stage4-loganalytics:
@@ -101,10 +90,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: "Init & Apply Log Analytics"
+        working-directory: .
         run: |
-          cd modules/loganalytics
           terraform init -input=false
-          terraform apply -auto-approve \
-            -var "resource_group_name=${{ secrets.RG_NAME }}" \
-            -var "location=centralindia" \
-            -var "workspace_name=lkworkspace12345"
+          terraform apply -auto-approve -target=module.loganalytics             -var-file="terraform.tfvars"
