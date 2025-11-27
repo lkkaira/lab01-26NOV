@@ -1,52 +1,94 @@
 
-name: "Terraform Azure CI/CD"
+name: "Terraform Multi-Stage Deployment"
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - "LALIT-26NOV/**"
+      - "lab01-26NOV/**"
 
 jobs:
-  plan:
-    name: "Terraform Plan"
+  stage1-storage:
+    name: "Stage 1: Deploy Storage"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: "Azure Login"
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: "Setup Terraform"
         uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply Storage"
+        run: |
+          cd modules/storage
+          terraform init
+          terraform apply -auto-approve \
+            -var "resource_group_name=${{ secrets.RG_NAME }}" \
+            -var "location=centralindia" \
+            -var "storage_name=lkstorage12345"
 
-      - name: "Terraform Init"
-        run: terraform init
-
-      - name: "Terraform Plan"
-        run: terraform plan -var-file="terraform.tfvars"
-
-  apply:
-    name: "Terraform Apply"
+  stage2-appserviceplan:
+    name: "Stage 2: Deploy App Service Plan"
     runs-on: ubuntu-latest
-    needs: [ plan ]
-    if: github.ref == 'refs/heads/main'
+    needs: [ stage1-storage ]
     steps:
       - uses: actions/checkout@v4
-
       - name: "Azure Login"
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: "Setup Terraform"
         uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply App Service Plan"
+        run: |
+          cd modules/appserviceplan
+          terraform init
+          terraform apply -auto-approve \
+            -var "resource_group_name=${{ secrets.RG_NAME }}" \
+            -var "location=centralindia" \
+            -var "plan_name=lkappplan"
 
-      - name: "Terraform Init"
-        run: terraform init
+  stage3-webapp:
+    name: "Stage 3: Deploy Web App"
+    runs-on: ubuntu-latest
+    needs: [ stage2-appserviceplan ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Azure Login"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply Web App"
+        run: |
+          cd modules/webapp
+          terraform init
+          terraform apply -auto-approve \
+            -var "resource_group_name=${{ secrets.RG_NAME }}" \
+            -var "location=centralindia" \
+            -var "webapp_name=lkwebapp12345" \
+            -var "plan_id=<APP_SERVICE_PLAN_ID_FROM_STAGE2>"
 
-      - name: "Terraform Apply"
-        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+  stage4-loganalytics:
+    name: "Stage 4: Deploy Log Analytics"
+    runs-on: ubuntu-latest
+    needs: [ stage3-webapp ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Azure Login"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+      - name: "Init & Apply Log Analytics"
+        run: |
+          cd modules/loganalytics
+          terraform init
+          terraform apply -auto-approve \
+            -var "resource_group_name=${{ secrets.RG_NAME }}" \
+            -var "location=centralindia" \
+            -var "workspace_name=lkworkspace12345"
