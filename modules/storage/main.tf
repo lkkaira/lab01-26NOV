@@ -21,10 +21,4 @@ variable "location" {}
 output "storage_id" {
   value = azurerm_storage_account.storage.id
 }
-public_network_access_enabled = false
- 
-  network_rules {
-    default_action = "Deny"
-    bypass         = ["AzureServices"]
-    ip_rules       = []
-  }
+
